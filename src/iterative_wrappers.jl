@@ -174,7 +174,7 @@ end
 function init_cacheval(alg::KrylovJL, A, b, u, Pl, Pr, maxiters::Int, abstol, reltol,
         verbose::Bool, assumptions::OperatorAssumptions; zeroinit = true)
     KS = get_KrylovJL_solver(alg.KrylovAlg)
-
+    zeroinit=false
     if zeroinit
         solver = if (alg.KrylovAlg === Krylov.dqgmres! ||
                      alg.KrylovAlg === Krylov.diom! ||
@@ -224,16 +224,18 @@ function init_cacheval(alg::KrylovJL, A, b, u, Pl, Pr, maxiters::Int, abstol, re
     return solver
 end
 
-function SciMLBase.solve!(cache::LinearCache, alg::KrylovJL; kwargs...)
+function SciMLBase.solve!(cache::LinearCache, alg::KrylovJL; reuse_precs = false, kwargs...)
     if cache.isfresh
         if hasproperty(alg, :precs) && !isnothing(alg.precs)
-            Pl, Pr = cache.alg.precs(x, cache.p)
-            cache.Pl = Pl
-            cache.Pr = Pr
+            if !reuse_precs
+                Pl, Pr = cache.alg.precs(cache.A, cache.p)
+                cache.Pl = Pl
+                cache.Pr = Pr
+            end
         end
         solver = init_cacheval(alg, cache.A, cache.b, cache.u, cache.Pl, cache.Pr,
             cache.maxiters, cache.abstol, cache.reltol, cache.verbose,
-            cache.assumptions, zeroinit = false)
+                               cache.assumptions, zeroinit = false)
         cache.cacheval = solver
         cache.isfresh = false
     end
