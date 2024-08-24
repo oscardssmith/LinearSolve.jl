@@ -172,16 +172,14 @@ function SciMLBase.init(prob::LinearProblem, alg::SciMLLinearSolveAlgorithm,
 
     u0_ = u0 !== nothing ? u0 : __init_u0_from_Ab(A, b)
 
-    # Guard against type mismatch for user-specified reltol/abstol
-    reltol = real(eltype(prob.b))(reltol)
-    abstol = real(eltype(prob.b))(abstol)
-
     precs = if hasproperty(alg, :precs)
         isnothing(alg.precs) ? DEFAULT_PRECS : alg.precs
     else
         DEFAULT_PRECS
     end
+
     _Pl, _Pr = precs(A, p)
+
     if isnothing(Pl)
         Pl = _Pl
     else
@@ -194,9 +192,17 @@ function SciMLBase.init(prob::LinearProblem, alg::SciMLLinearSolveAlgorithm,
         # TODO: deprecate once all docs are updated to the new form
         #@warn "passing Preconditioners at `init`/`solve` time is deprecated. Instead add a `precs` function to your algorithm."
     end
+
+
+    # Guard against type mismatch for user-specified reltol/abstol
+    reltol = real(eltype(prob.b))(reltol)
+    abstol = real(eltype(prob.b))(abstol)
+
     cacheval = init_cacheval(alg, A, b, u0_, Pl, Pr, maxiters, abstol, reltol, verbose,
-        assumptions)
-    isfresh = true
+                             assumptions)
+
+    isfresh=!isa(alg, AbstractKrylovSubspaceMethod)
+
     Tc = typeof(cacheval)
 
     cache = LinearCache{typeof(A), typeof(b), typeof(u0_), typeof(p), typeof(alg), Tc,
@@ -225,7 +231,7 @@ function SciMLBase.reinit!(cache::LinearCache;
         cache.A = A
         cache.b = b
         cache.u = u
-        cache.p = p
+        cache.p = isnothing(p) ? SciMLBase.NullParameters() : p
         cache.isfresh = true
     end
 end
